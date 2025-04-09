@@ -1,7 +1,7 @@
-import boto3
-import json
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from config import Config
+import boto3
+import json
 
 class AWSService:
     def __init__(self):
@@ -34,36 +34,51 @@ class AWSService:
             raise
 
     # En la clase AWSService, modificar los métodos de subida:
-    def upload_file_to_s3_v2(self, file_content, object_name):
+    def upload_file_to_s3_v2(self, file_content, object_name, content_type='application/pdf'):
         try:
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=object_name,
                 Body=file_content,
-                ContentType='application/pdf'
+                ContentType=content_type  # <-- Usar el parámetro
             )
-            print(f"PDF subido a s3://{self.bucket_name}/{object_name}")
             return f"s3://{self.bucket_name}/{object_name}"
         except Exception as e:
             print(f"Error subiendo archivo: {e}")
             raise
 
-    def analyze_document_with_textract_sync(self, document_name, output_file):
-        """Analyzes a document stored in S3 using Textract (synchronous) and saves the result as JSON."""
+    def analyze_document_with_textract_sync(self, document_name, output_file, content_type='application/pdf'):
+        """Analyzes documents and images"""
         try:
-            response = self.textract_client.analyze_document(
-                Document={
+            # Configuración común
+            doc_config = {
+                'FeatureTypes': ['TABLES', 'FORMS']
+            }
+
+            # Manejar diferente entre PDF e imágenes
+            if content_type == 'application/pdf':
+                doc_config['Document'] = {
                     'S3Object': {
                         'Bucket': self.bucket_name,
                         'Name': document_name
                     }
-                },
-                FeatureTypes=['TABLES', 'FORMS']
-            )
+                }
+            else:
+                # Obtener bytes de la imagen desde S3
+                response = self.s3_client.get_object(
+                    Bucket=self.bucket_name,
+                    Key=document_name
+                )
+                doc_config['Document'] = {
+                    'Bytes': response['Body'].read()
+                }
+
+            response = self.textract_client.analyze_document(**doc_config)
+            
             with open(output_file, 'w') as f:
                 json.dump(response, f, indent=4)
-            print(f"Textract sync analysis saved to {output_file}")
             return response
+    
         except Exception as e:
             print(f"Error analyzing document (sync): {e}")
             raise

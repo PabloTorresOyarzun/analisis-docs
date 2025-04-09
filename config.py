@@ -32,10 +32,24 @@ class Config:
     if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET_NAME]):
         raise ValueError("Faltan credenciales de AWS en las variables de entorno")
 
-    # ----- BACKEND -----
+
+    # ----- SGD BACKEND API -----
     BACKEND_URL = os.getenv('BACKEND_URL')
     AUTH_TOKEN = os.getenv('AUTH_TOKEN')  # Token de autorización para el backend
 
-    # Validación de credenciales BACKEND
+    # Validación de credenciales SGD BACKEND API
     if not all([BACKEND_URL, AUTH_TOKEN]):
         raise ValueError("Faltan credenciales de BACKEND en las variables de entorno")
+
+
+    # ----- DATABASE -----
+    DB_TYPE = os.getenv('DB_TYPE', 'sqlite')  # 'mysql' o 'sqlite'
+    
+    # Config MySQL
+    MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
+    MYSQL_USER = os.getenv('MYSQL_USER', 'flask_user')
+    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
+    MYSQL_DB = os.getenv('MYSQL_DB', 'flask_db')
+    
+    # Config SQLite
+    SQLITE_PATH = os.getenv('SQLITE_PATH', '/app/database.db')  

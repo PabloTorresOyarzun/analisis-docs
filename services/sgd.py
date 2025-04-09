@@ -1,11 +1,11 @@
 from urllib.parse import urljoin
-import requests
-import base64
 from flask import Blueprint, jsonify, send_file, Response
 from werkzeug.utils import secure_filename
 from config import Config
 from io import BytesIO
 import zipfile
+import requests
+import base64
 
 despachos_bp = Blueprint('despachos', __name__)
 

@@ -8,12 +8,15 @@ import zipfile
 import time
 import json
 import os
+from werkzeug.utils import secure_filename
 
 # Inicializar DatabaseManager después de crear la app
 db_manager = DatabaseManager()
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Necesario para mensajes flash
+app.jinja_env.globals.update(json=json)  # Permitir usar json en templates
+
 app.register_blueprint(despachos_bp)
 
 @app.route('/')
@@ -229,13 +232,37 @@ def upload_blocks():
     
     files = request.files.getlist('json_files')
     inserted_total = 0
+    aws_service = AWSService()  # <-- Añade esta línea
     
     for file in files:
         if file.filename.endswith('.json'):
             try:
                 data = json.load(file)
-                inserted = len(db_manager.insert_from_json(data))
-                inserted_total += inserted
+                # Procesar bloques y relaciones
+                blocks, relationships = aws_service.process_textract_blocks(data)  # <-- Usa la instancia
+                
+                # Insertar bloques
+                # Insertar bloques con manejo de duplicados
+                for block in blocks.values():
+                    db_manager.insert_line_block(
+                        document_id=secure_filename(file.filename),
+                        block_data=block
+                    )
+                
+                # Insertar relaciones
+                for rel in relationships:
+                    try:
+                        db_manager.insert_relationship(
+                            rel['parent_id'],
+                            rel['child_id'],
+                            rel['type']
+                        )
+                    except Exception as e:
+                        if 'Duplicate entry' not in str(e):
+                            raise
+                
+                inserted_total += len(blocks)
+            
             except Exception as e:
                 flash(f'Error procesando {file.filename}: {str(e)}', 'warning')
     

@@ -56,7 +56,7 @@
 <body class="bg-light">
     <div class="container mt-5">
         <div class="row justify-content-center">
-            <div class="col-md-10">
+            <div class="col-md-12">
                 <div class="card shadow">
                     <div class="card-body">
                         <h2 class="card-title text-center mb-4">📄 Procesamiento de Documentos</h2>
@@ -148,7 +148,7 @@
                                     </div>
                                     
                                     <div class="d-grid">
-                                        <button type="submit" class="btn btn-success btn-block mt-3" id="uploadBtn" disabled>
+                                        <button type="submit" class="btn btn-success btn-block" id="uploadBtn" disabled>
                                             Procesar
                                         </button>
                                     </div>
@@ -186,39 +186,57 @@
                                             <thead class="table-dark">
                                                 <tr>
                                                     <th>ID</th>
-                                                    <th>Documento</th>
+                                                    <th>Tipo</th>
+                                                    <th style="width: 1%">Documento</th>
                                                     <th>Página</th>
                                                     <th>Texto</th>
                                                     <th>Confianza</th>
-                                                    <th>Posición</th>
+                                                    <th>Relaciones</th>
+                                                    <th>Posición (X,Y)</th>
+                                                    <th>Ancho/Alto</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {% if blocks %}
-                                                    {% for block in blocks %}
-                                                    <tr>
-                                                        <td>{{ block.id }}</td>
-                                                        <td>{{ block.document_id or 'N/A' }}</td>
-                                                        <td>{{ block.page }}</td>
-                                                        <td class="text-truncate" title="{{ block.text }}">
-                                                            {{ block.text }}
-                                                        </td>
-                                                        <td>{{ "%.2f"|format(block.confidence) }}%</td>
-                                                        <td>
-                                                            <small>
-                                                                T: {{ "%.2f"|format(block.top) }}<br>
-                                                                L: {{ "%.2f"|format(block.left_pos) }}
-                                                            </small>
-                                                        </td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <tr>
-                                                        <td colspan="6" class="text-center text-muted py-4">
-                                                            No se encontraron bloques de texto
-                                                        </td>
-                                                    </tr>
-                                                {% endif %}
+                                                {% for block in blocks %}
+                                                <tr>
+                                                    <td>{{ block.id }}</td>
+                                                    <td>{{ block.block_type }}</td>
+                                                    <td>{{ block.document_id }}</td>
+                                                    <td>{{ block.page }}</td>
+                                                    <td class="text-truncate" title="{{ block.text }}">
+                                                        {{ block.text }}
+                                                    </td>
+                                                    <td>{{ "%.2f"|format(block.confidence) }}%</td>
+                                                    <td>
+                                                        {% if block.relationships %}
+                                                            {% for rel in block.relationships.split(',') %}
+                                                                <span class="badge bg-info" title="{{ rel }}">
+                                                                    {{ rel.split('->')[0] }}: {{ rel.split('->')[1][:8] }}...
+                                                                </span>
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            <span class="text-muted">Sin relaciones</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if block.geometry %}
+                                                            {% set geo = json.loads(block.geometry) %}
+                                                            X: {{ (geo.get('BoundingBox', {}).get('Left', 0) * 100)|round(2) }}%<br>
+                                                            Y: {{ (geo.get('BoundingBox', {}).get('Top', 0) * 100)|round(2) }}%
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        {% if block.geometry %}
+                                                            Ancho: {{ (geo.get('BoundingBox', {}).get('Width', 0) * 100)|round(2) }}%<br>
+                                                            Alto: {{ (geo.get('BoundingBox', {}).get('Height', 0) * 100)|round(2) }}%
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </td>                                    
+                                                </tr>
+                                                {% endfor %}
                                             </tbody>
                                         </table>
                                     </div>
@@ -300,6 +318,7 @@
     
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            uploadBtn.disabled = true;  // Deshabilitar botón al iniciar
             uploadProgress.classList.remove('d-none');
             
             const formData = new FormData();
@@ -309,7 +328,7 @@
             Array.from(fileInput.files).forEach(file => {
                 formData.append('files', file);
             });
-    
+
             try {
                 const response = await fetch('/upload', {
                     method: 'POST',
@@ -329,7 +348,7 @@
             } finally {
                 uploadProgress.classList.add('d-none');
                 fileInput.value = '';
-                updateUI();
+                updateUI();  // Actualiza estado del botón basado en archivos
             }
         });
     </script>

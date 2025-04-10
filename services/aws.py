@@ -122,3 +122,30 @@ class AWSService:
         except Exception as e:
             print(f"Error obteniendo resultados: {e}")
             raise
+    
+    # aws.py (nuevo método)
+    def process_textract_blocks(self, textract_data):
+        blocks = {}
+        relationships = []
+        
+        for block in textract_data.get('Blocks', []):
+            block_id = block['Id']
+            blocks[block_id] = {
+                'id': block_id,
+                'block_type': block['BlockType'],
+                'text': block.get('Text', ''),
+                'confidence': block.get('Confidence', 0.0),
+                'page': block.get('Page', 1),
+                'geometry': json.dumps(block.get('Geometry', {}))
+            }
+            
+            if 'Relationships' in block:
+                for rel in block['Relationships']:
+                    for child_id in rel['Ids']:
+                        relationships.append({
+                            'parent_id': block_id,
+                            'child_id': child_id,
+                            'type': rel['Type']
+                        })
+    
+        return blocks, relationships

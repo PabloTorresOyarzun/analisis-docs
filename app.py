@@ -81,7 +81,8 @@ def procesar():
                                 f"despachos/{iddespacho}/{file_info.filename}",
                                 output_file
                             )
-                            resultados.append(f"Análisis sincrónico completado: {output_file}")
+                            inserted = process_and_store_blocks(output_file, f"despacho_{iddespacho}")
+                            resultados.append(f"Análisis sincrónico completado: {output_file} | Bloques insertados: {inserted}")
                         # En el bloque donde se procesa el método async:
                         else:
                             job_id = aws_service.analyze_document_with_textract_async(
@@ -107,18 +108,56 @@ def procesar():
                             with open(json_filename, 'w') as f:
                                 json.dump(analysis_result, f, indent=4)
                             
-                            resultados.append(f"Análisis async completado: {json_filename}")
+                            inserted = process_and_store_blocks(json_filename, f"despacho_{iddespacho}")
+                            resultados.append(f"Análisis async completado: {json_filename} | Bloques insertados: {inserted}")
+
+                            redirect(url_for('view_blocks'))
                             
                     except Exception as e:
                         resultados.append(f"Error en {file_info.filename}: {str(e)}")
                         continue
     
-        flash('Proceso completado exitosamente', 'success')
-        return render_template('index.html', resultados=resultados)
+        #flash('Proceso completado exitosamente', 'success')
+        #return render_template('index.html', resultados=resultados)
     
+        for resultado in resultados:
+            flash(resultado, 'info')
+        return redirect(url_for('view_blocks'))
+
     except Exception as e:
         flash(f'Error en el proceso: {str(e)}', 'danger')
         return redirect(url_for('index'))
+
+# Función auxiliar para procesar JSONs  
+def process_and_store_blocks(json_path, document_id):
+    aws_service = AWSService()
+    db_manager = DatabaseManager()
+    
+    try:
+        with open(json_path, 'r') as f:
+            textract_data = json.load(f)
+        
+        blocks, relationships = aws_service.process_textract_blocks(textract_data)
+        
+        # Insertar bloques
+        for block in blocks.values():
+            db_manager.insert_line_block(
+                document_id=document_id,
+                block_data=block
+            )
+        
+        # Insertar relaciones
+        for rel in relationships:
+            db_manager.insert_relationship(
+                rel['parent_id'],
+                rel['child_id'],
+                rel['type']
+            )
+            
+        return len(blocks)
+    except Exception as e:
+        app.logger.error(f"Error procesando {json_path}: {str(e)}")
+        return 0
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -251,16 +290,12 @@ def upload_blocks():
                 
                 # Insertar relaciones
                 for rel in relationships:
-                    try:
-                        db_manager.insert_relationship(
-                            rel['parent_id'],
-                            rel['child_id'],
-                            rel['type']
-                        )
-                    except Exception as e:
-                        if 'Duplicate entry' not in str(e):
-                            raise
-                
+                    db_manager.insert_relationship(
+                        rel['parent_id'],
+                        rel['child_id'],
+                        rel['type']
+                    )
+                                
                 inserted_total += len(blocks)
             
             except Exception as e:

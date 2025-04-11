@@ -95,11 +95,11 @@ class DatabaseManager:
     def insert_relationship(self, parent_id, child_id, rel_type):
         """Inserta una relación entre bloques"""
         query = """
-            INSERT INTO block_relationships 
+            INSERT IGNORE INTO block_relationships 
             (parent_id, child_id, type)
             VALUES (%s, %s, %s)
         """ if self.db_type == 'mysql' else """
-            INSERT INTO block_relationships 
+            INSERT OR IGNORE INTO block_relationships 
             (parent_id, child_id, type)
             VALUES (?, ?, ?)
         """
